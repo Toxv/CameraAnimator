@@ -1,7 +1,6 @@
-﻿using BepInEx;
+using BepInEx;
 using System;
 using UnityEngine;
-using Utilla;
 using Cinemachine;
 using UnityEngine.InputSystem;
 using GorillaNetworking;
@@ -14,8 +13,6 @@ using System.Threading;
 
 namespace Cam
 {
-    [ModdedGamemode]
-    [BepInDependency("org.legoandmars.gorillatag.utilla", "1.5.0")]
     [BepInPlugin(PluginInfo.GUID, PluginInfo.Name, PluginInfo.Version)]
     public class Plugin : BaseUnityPlugin
     {
@@ -776,6 +773,8 @@ namespace Cam
 
         void Start()
                     {
+
+
                         bundle = AssetBundle.LoadFromStream(Assembly.GetExecutingAssembly().GetManifestResourceStream("Cam.Assets.ui"));
                         skin = bundle.LoadAsset<GUISkin>("Skin");
                         timelineRect = new Rect(40, 160, 2, 140);
@@ -797,10 +796,10 @@ namespace Cam
                         }
 
                         timePerFrame = 1f / frameRate;
-                        Utilla.Events.GameInitialized += OnGameInitialized;
-                    }
-                    void OnGameInitialized(object sender, EventArgs e)
-                    {
+                        GorillaTagger.OnPlayerSpawned(playerSpawned);
+             }
+        void playerSpawned()
+        {
                         SetupCamera();
                         loaded = true;
                     }
