@@ -20,7 +20,6 @@ namespace Cam
         private GameObject cube;
         private GameObject[] keyframesvisual = new GameObject[0];
         private Keyframe[] keyframes = new Keyframe[0];
-
         private int currentFrame = 0;
         private int nextFrame = 1;
         private int keyframeselectednum = -1;
@@ -30,7 +29,8 @@ namespace Cam
         private float timePerFrame;
         private float timer = 0f;
         private bool isPlaying = false;
-        private Keyframe newKeyframe = new Keyframe(Vector3.zero, Quaternion.identity, float.NaN);
+        private Keyframe newKeyframe = new Keyframe(Vector3.zero, Quaternion.identity, 90.0f);
+
 
         // -- GUI Layout
         private Rect editorRect = new Rect(0, Screen.height, 700, 400);
@@ -131,11 +131,7 @@ namespace Cam
         }
         private void Update()
         {
-            if (!isPlaying)
-            {
-                cube.transform.position = newKeyframe.position;
-                cube.transform.rotation = newKeyframe.rotation;
-            }
+
             if (cameraview && isPlaying)
             {
                 CamObject.transform.position = cube.transform.position;
@@ -147,6 +143,11 @@ namespace Cam
                 HandleMovement();
                 HandleFreeLook();
                 HandleCursorLock();
+            }
+            if (!isPlaying && loaded)
+            {
+                cube.transform.position = newKeyframe.position;
+                cube.transform.rotation = newKeyframe.rotation;
             }
         }
         void HandleMovement()
@@ -366,7 +367,7 @@ namespace Cam
                 {
                     newKeyframes[i] = keyframes[i];
                 }
-                newKeyframes[keyframes.Length] = new Keyframe(CamObject.transform.position, CamObject.transform.rotation,fov);
+                newKeyframes[keyframes.Length] = new Keyframe(CamObject.transform.position, CamObject.transform.rotation, fov);
                 keyframes = newKeyframes;
 
                 currentFrame = keyframes.Length - 1;
@@ -594,30 +595,45 @@ namespace Cam
                 if (GUI.Button(new Rect(xPos + 20, yPos + 230, 140, 20), "Add Keyframe"))
                 {
                     float fov = CamObject.GetComponent<Camera>().fieldOfView;
+                    Debug.Log("Got 1");
                     Keyframe[] newKeyframes = new Keyframe[keyframes.Length + 1];
+                    Debug.Log("Got 2");
                     for (int i = 0; i < keyframes.Length; i++)
                     {
                         newKeyframes[i] = keyframes[i];
                     }
+                    Debug.Log("Got 3");
                     newKeyframes[keyframes.Length] = new Keyframe(CamObject.transform.position, CamObject.transform.rotation, fov);
+                    Debug.Log("Got 4");
                     keyframes = newKeyframes;
-
+                    Debug.Log("Got 5");
                     currentFrame = keyframes.Length - 1;
+                    Debug.Log("Got 6");
                     nextFrame = (currentFrame + 1) % keyframes.Length;
+                    Debug.Log("Got 7");
                     cube.transform.position = keyframes[currentFrame].position;
+                    Debug.Log("Got 8");
                     cube.transform.rotation = keyframes[currentFrame].rotation;
+                    Debug.Log("Got 9");
                     GameObject keyframeVisual = GameObject.CreatePrimitive(PrimitiveType.Cube);
+                    Debug.Log("Got 10");
                     keyframeVisual.transform.localScale = new Vector3(0.2f, 0.2f, 0.2f);
+                    Debug.Log("Got 11");
                     keyframeVisual.GetComponent<Renderer>().material.shader = Shader.Find("GorillaTag/UberShader");
+                    Debug.Log("Got 12");
                     keyframeVisual.GetComponent<Renderer>().material.color = Color.red;
+                    Debug.Log("Got 13");
                     keyframeVisual.transform.position = CamObject.transform.position;
+                    Debug.Log("Got 14");
                     keyframeVisual.transform.rotation = CamObject.transform.rotation;
-
+                    Debug.Log("Got 15");
                     GameObject[] newKeyframesVisual = new GameObject[keyframes.Length];
+                    Debug.Log("Got 16");
                     for (int i = 0; i < keyframesvisual.Length; i++)
                     {
                         newKeyframesVisual[i] = keyframesvisual[i];
                     }
+                    Debug.Log("Got 10");
                     newKeyframesVisual[keyframes.Length - 1] = keyframeVisual;
                     keyframesvisual = newKeyframesVisual;
 
@@ -636,7 +652,7 @@ namespace Cam
                 }
                 if (keyframeselected && keyframes.Length > keyframeselectednum)
                 {
-                    float currentFOV = keyframes[keyframeselectednum].fov; 
+                    float currentFOV = keyframes[keyframeselectednum].fov;
                     GUI.Label(new Rect(xPos + 500, yPos + 230, 40, 20), "FOV:");
                     string fovinput2 = GUI.TextField(new Rect(xPos + 540, yPos + 230, 50, 20), currentFOV.ToString());
                     if (float.TryParse(fovinput2, out float fovnew2) && fovnew2 >= 1)
@@ -698,14 +714,14 @@ namespace Cam
         }
         private int efef = 0;
 
-        private float maxDistanceFactor = 1.0f; 
-        private float minTimePerFrame = 0.05f; 
+        private float maxDistanceFactor = 1.0f;
+        private float minTimePerFrame = 0.05f;
         private float maxTimePerFrame = 0.5f;
 
         private void PlayAnimation()
         {
-            float totalDuration = 24f / fps; 
-            currentTime += Time.deltaTime; 
+            float totalDuration = 24f / fps;
+            currentTime += Time.deltaTime;
             float newMarkerPosition = (currentTime / totalDuration) * maxTimeline * zoomFactor;
 
             if (keyframes.Length > 0)
@@ -723,7 +739,7 @@ namespace Cam
                             if (loopPlayback)
                             {
                                 currentFrame = 0;
-                                currentTime = 0f; 
+                                currentTime = 0f;
                                 timer = 0f;
                             }
                             else
@@ -744,7 +760,7 @@ namespace Cam
                     }
                     if (currentFrame < keyframes.Length - 1)
                     {
-                        
+
                         Keyframe start = keyframes[currentFrame];
                         Keyframe end = keyframes[currentFrame + 1];
 
@@ -772,36 +788,34 @@ namespace Cam
 
 
         void Start()
-                    {
-
-
-                        bundle = AssetBundle.LoadFromStream(Assembly.GetExecutingAssembly().GetManifestResourceStream("Cam.Assets.ui"));
-                        skin = bundle.LoadAsset<GUISkin>("Skin");
-                        timelineRect = new Rect(40, 160, 2, 140);
-                        maxTimeline = maxFrames * 60f;
-
-                        cube = GameObject.CreatePrimitive(PrimitiveType.Sphere);
-                        cube.transform.position = new Vector3(0, 0, 0); // Set position
-                        cube.transform.localScale = new Vector3(0.5f, 0.5f, 0.5f);
-                        cube.transform.rotation = Quaternion.Euler(90, 0, 0);
-                        MeshRenderer renderer = cube.GetComponent<MeshRenderer>();
-                        Material material = new Material(Shader.Find("GorillaTag/UberShader"));
-                        material.color = Color.blue;
-                        renderer.material = material;
-
-                        if (cube == null)
-                        {
-                            Debug.LogError("Cube GameObject not found in the scene.");
-                            return;
-                        }
-
-                        timePerFrame = 1f / frameRate;
-                        GorillaTagger.OnPlayerSpawned(playerSpawned);
-             }
+        {
+            GorillaTagger.OnPlayerSpawned(playerSpawned);
+           
+        }
         void playerSpawned()
         {
-                        SetupCamera();
-                        loaded = true;
-                    }
-                }
+             bundle = AssetBundle.LoadFromStream(Assembly.GetExecutingAssembly().GetManifestResourceStream("Cam.Assets.ui"));
+            skin = bundle.LoadAsset<GUISkin>("Skin");
+            timelineRect = new Rect(40, 160, 2, 140);
+            maxTimeline = maxFrames * 60f;
+
+            cube = GameObject.CreatePrimitive(PrimitiveType.Sphere);
+            cube.transform.position = new Vector3(0, 0, 0); // Set position
+            cube.transform.localScale = new Vector3(0.5f, 0.5f, 0.5f);
+            cube.transform.rotation = Quaternion.Euler(90, 0, 0);
+            MeshRenderer renderer = cube.GetComponent<MeshRenderer>();
+            Material material = new Material(Shader.Find("GorillaTag/UberShader"));
+            material.color = Color.blue;
+            renderer.material = material;
+
+            if (cube == null)
+            {
+                Debug.LogError("Cube GameObject not found in the scene.");
+                return;
             }
+            timePerFrame = 1f / frameRate;
+            SetupCamera();
+            loaded = true;
+        }
+    }
+}
