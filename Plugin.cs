@@ -10,6 +10,8 @@ using System.IO;
 using System.Text.RegularExpressions;
 using System.Linq;
 using System.Threading;
+using HarmonyLib;
+using System.Text;
 
 namespace Cam
 {
@@ -37,7 +39,7 @@ namespace Cam
 
         // -- Lerp Animation
         private float lerpTime = 0f;
-        private float lerpDuration = 4f;
+        private float lerpDuration = 1f;
         private bool testStarted = false;
 
         // -- Dragging and Interaction
@@ -92,42 +94,87 @@ namespace Cam
         // -- GUI Visibility
         bool guiVisible = true;
 
+        // -- Other
+        static string cameraPath = Path.Combine(Paths.BepInExRootPath, "CameraAnimationSaves");// wryser stole ur code heheh
+
+
+
+        // Dear Dev if you are reading this im sorry for my code please forgive me i swear it wasnt me who made this
+        // my dog coded it thats why its to messy - Tox
         public void AddKeyframe(Vector3 position, Quaternion rotation, float fov)
         {
             Array.Resize(ref keyframes, keyframes.Length + 1);
             keyframes[keyframes.Length - 1] = new Keyframe(position, rotation, fov);
             Debug.Log($"Added Keyframe: Position: {position}, Rotation: {rotation}");
         }
-
-        public void ExportKeyframes(/*string filePath*/)
+        // if anyone can get importing working il give them nitro dm and if u get it working and show me and send it to me
+        public void ExportKeyframes()
         {
             if (keyframes.Length == 0)
             {
                 Debug.LogWarning("No keyframes to export.");
                 return;
             }
-            string json = "{\n";
-            json += $"    \"frameRate\": {frameRate},\n";
-            json += $"    \"fps\": {fps},\n";
-            json += $"    \"loopPlayback\": {loopPlayback.ToString().ToLower()},\n";
-            json += "    \"keyframes\": [\n";
+
+            string keyframeFileName = $"Keyframes_Save_{DateTime.Now:dd-MM-yyyy_HH-mm-ss}.kfc";
+            string fullPath = Path.Combine(cameraPath, keyframeFileName);
+
+            StringBuilder jsonBuilder = new StringBuilder();
+            jsonBuilder.AppendLine("{");
+            jsonBuilder.AppendLine($"    \"frameRate\": {frameRate},");
+            jsonBuilder.AppendLine($"    \"fps\": {fps},");
+            jsonBuilder.AppendLine($"    \"loopPlayback\": {loopPlayback.ToString().ToLower()},");
+            jsonBuilder.AppendLine("    \"keyframes\": [");
 
             for (int i = 0; i < keyframes.Length; i++)
             {
-                json += "        {\n";
-                json += $"            \"position\": [{keyframes[i].position.x}, {keyframes[i].position.y}, {keyframes[i].position.z}],\n";
-                json += $"            \"rotation\": [{keyframes[i].rotation.x}, {keyframes[i].rotation.y}, {keyframes[i].rotation.z}, {keyframes[i].rotation.w}]\n";
-                json += "        }";
+                jsonBuilder.AppendLine("        {");
+                jsonBuilder.AppendLine($"            \"position\": [{keyframes[i].position.x}, {keyframes[i].position.y}, {keyframes[i].position.z}],");
+                jsonBuilder.AppendLine($"            \"rotation\": [{keyframes[i].rotation.x}, {keyframes[i].rotation.y}, {keyframes[i].rotation.z}, {keyframes[i].rotation.w}],");
+                jsonBuilder.AppendLine($"            \"fov\": {keyframes[i].fov}");
+                jsonBuilder.Append("        }");
 
                 if (i < keyframes.Length - 1)
-                    json += ",";
+                    jsonBuilder.Append(",");
 
-                json += "\n";
+                jsonBuilder.AppendLine();
             }
 
-            json += "    ]\n";
-            json += "}";
-            Debug.Log(json);
+            jsonBuilder.AppendLine("    ],");
+            jsonBuilder.AppendLine("    \"keyframePositions\": [");
+
+            for (int i = 0; i < keyframePositions.Count; i++)
+            {
+                jsonBuilder.Append($"        {keyframePositions[i]}");
+                if (i < keyframePositions.Count - 1)
+                    jsonBuilder.Append(",");
+
+                jsonBuilder.AppendLine();
+            }
+
+            jsonBuilder.AppendLine("    ],");
+            jsonBuilder.AppendLine("    \"keyframesVisual\": [");
+
+            for (int i = 0; i < keyframesvisual.Length; i++)
+            {
+                jsonBuilder.Append($"        {{ \"name\": \"{keyframesvisual[i].name}\", " +
+                                  $"\"position\": [{keyframesvisual[i].transform.position.x}, {keyframesvisual[i].transform.position.y}, {keyframesvisual[i].transform.position.z}], " +
+                                  $"\"rotation\": [{keyframesvisual[i].transform.rotation.x}, {keyframesvisual[i].transform.rotation.y}, {keyframesvisual[i].transform.rotation.z}, {keyframesvisual[i].transform.rotation.w}] }}");
+
+                if (i < keyframesvisual.Length - 1)
+                    jsonBuilder.Append(",");
+
+                jsonBuilder.AppendLine();
+            }
+
+            jsonBuilder.AppendLine("    ]");
+            jsonBuilder.AppendLine("}");
+            using (StreamWriter writer = new StreamWriter(fullPath))
+            {
+                writer.WriteAsync(jsonBuilder.ToString()).GetAwaiter().GetResult();
+            }
+
+            Debug.Log($"Keyframes exported to: {fullPath}");
         }
         private void Update()
         {
@@ -333,6 +380,10 @@ namespace Cam
             UnityEngine.Cursor.visible = true;
             UnityEngine.Cursor.lockState = CursorLockMode.None;
         }
+
+        private string[] options = { "Linear", "EaseInOut", "Constant" };
+        private int selectedIndex = 0;
+        private bool showDropdown = false;
         private void OnGUI()
         {
             GUI.skin = skin;
@@ -388,10 +439,6 @@ namespace Cam
                 }
                 newKeyframesVisual[keyframes.Length - 1] = keyframeVisual;
                 keyframesvisual = newKeyframesVisual;
-
-                Console.WriteLine("added keyframe");
-                Debug.Log("Keyframes count: " + keyframes.Length);
-                Debug.Log("Visual Keyframes count: " + keyframesvisual.Length);
                 AddKeyframe(timelineRect.x + scrollPosition.x);
             }
 
@@ -401,7 +448,7 @@ namespace Cam
                 {
                     visual.active = true;
                 }
-                float guiWidth = 600f;
+                float guiWidth = 600;
                 float guiHeight = 255f;
                 float xPos = (Screen.width - guiWidth) / 2;
                 float yPos = Screen.height - guiHeight - 20;
@@ -458,31 +505,24 @@ namespace Cam
                     fov = fovnew;
 
                 }
+
                 if (keyframeselected || isPlaying)
                 {
                     int frameplaying;
-
-                    // Determine the frame being played
                     if (isPlaying)
                     {
                         frameplaying = currentFrame;
                     }
                     else
                     {
-                        frameplaying = keyframeselectednum; // Use the selected keyframe index if not playing
+                        frameplaying = keyframeselectednum;
                     }
-
-                    // Display keyframe information
                     GUILayout.Label("Key: " + frameplaying, GUILayout.Width(40));
-
-                    // Ensure we don't access an out-of-bounds index
                     if (keyframes.Length > frameplaying)
                     {
                         GUILayout.Label("Fov: " + keyframes[frameplaying].fov, GUILayout.Width(40));
                     }
                 }
-
-
                 GUILayout.EndHorizontal();
                 GUILayout.EndArea();
 
@@ -528,6 +568,21 @@ namespace Cam
                         keyframeselectednum = -1;
                     }
                 }
+                if (!keyframeselected)
+                {
+                    if (GUILayout.Button("<", GUILayout.Width(50)))
+                    {
+                        selectedIndex = (selectedIndex - 1 + options.Length) % options.Length;
+                        UpdateAnimationCurve();
+                    }
+                    GUILayout.Label($"{options[selectedIndex]}", GUILayout.Width(100));
+                    if (GUILayout.Button(">", GUILayout.Width(50)))
+                    {
+                        selectedIndex = (selectedIndex + 1) % options.Length;
+                        UpdateAnimationCurve();
+                    }
+
+                }// sorry not sorry got bored but if u find this dm monkey! and il say something
                 GUILayout.EndHorizontal();
                 GUILayout.EndArea();
 
@@ -556,7 +611,7 @@ namespace Cam
                     float keyframeWidth = keyframeBaseWidth * zoomFactor;
                     float displayedKeyframeX = keyframePositions[i] * zoomFactor - scrollPosition.x;
                     Rect keyframe = new Rect(displayedKeyframeX, 0, keyframeWidth, 80);
-                    if (keyframe.Contains(Event.current.mousePosition) && Event.current.type == EventType.MouseDown && Event.current.button == 0) // Left-click
+                    if (keyframe.Contains(Event.current.mousePosition) && Event.current.type == EventType.MouseDown && Event.current.button == 0)
                     {
                         draggedKeyframeIndex = i;
                         dragStartMousePosition = Event.current.mousePosition;
@@ -579,7 +634,7 @@ namespace Cam
                         Event.current.Use();
 
                     }
-                    if (keyframe.Contains(Event.current.mousePosition) && Event.current.type == EventType.MouseDown && Event.current.button == 1) // Right-click
+                    if (keyframe.Contains(Event.current.mousePosition) && Event.current.type == EventType.MouseDown && Event.current.button == 1)
                     {
                         keyframeselected = true;
                         keyframeselectednum = i;
@@ -595,51 +650,30 @@ namespace Cam
                 if (GUI.Button(new Rect(xPos + 20, yPos + 230, 140, 20), "Add Keyframe"))
                 {
                     float fov = CamObject.GetComponent<Camera>().fieldOfView;
-                    Debug.Log("Got 1");
                     Keyframe[] newKeyframes = new Keyframe[keyframes.Length + 1];
-                    Debug.Log("Got 2");
                     for (int i = 0; i < keyframes.Length; i++)
                     {
                         newKeyframes[i] = keyframes[i];
                     }
-                    Debug.Log("Got 3");
                     newKeyframes[keyframes.Length] = new Keyframe(CamObject.transform.position, CamObject.transform.rotation, fov);
-                    Debug.Log("Got 4");
                     keyframes = newKeyframes;
-                    Debug.Log("Got 5");
                     currentFrame = keyframes.Length - 1;
-                    Debug.Log("Got 6");
                     nextFrame = (currentFrame + 1) % keyframes.Length;
-                    Debug.Log("Got 7");
                     cube.transform.position = keyframes[currentFrame].position;
-                    Debug.Log("Got 8");
                     cube.transform.rotation = keyframes[currentFrame].rotation;
-                    Debug.Log("Got 9");
                     GameObject keyframeVisual = GameObject.CreatePrimitive(PrimitiveType.Cube);
-                    Debug.Log("Got 10");
                     keyframeVisual.transform.localScale = new Vector3(0.2f, 0.2f, 0.2f);
-                    Debug.Log("Got 11");
                     keyframeVisual.GetComponent<Renderer>().material.shader = Shader.Find("GorillaTag/UberShader");
-                    Debug.Log("Got 12");
                     keyframeVisual.GetComponent<Renderer>().material.color = Color.red;
-                    Debug.Log("Got 13");
                     keyframeVisual.transform.position = CamObject.transform.position;
-                    Debug.Log("Got 14");
                     keyframeVisual.transform.rotation = CamObject.transform.rotation;
-                    Debug.Log("Got 15");
                     GameObject[] newKeyframesVisual = new GameObject[keyframes.Length];
-                    Debug.Log("Got 16");
                     for (int i = 0; i < keyframesvisual.Length; i++)
                     {
                         newKeyframesVisual[i] = keyframesvisual[i];
                     }
-                    Debug.Log("Got 10");
                     newKeyframesVisual[keyframes.Length - 1] = keyframeVisual;
                     keyframesvisual = newKeyframesVisual;
-
-                    Console.WriteLine("added keyframe");
-                    Debug.Log("Keyframes count: " + keyframes.Length);
-                    Debug.Log("Visual Keyframes count: " + keyframesvisual.Length);
                     AddKeyframe(timelineRect.x + scrollPosition.x);
                 }
                 if (GUI.Button(new Rect(xPos + 180, yPos + 230, 140, 20), "Save Animation"))
@@ -648,7 +682,6 @@ namespace Cam
                 }
                 if (GUI.Button(new Rect(xPos + 340, yPos + 230, 140, 20), "Load Animation"))
                 {
-
                 }
                 if (keyframeselected && keyframes.Length > keyframeselectednum)
                 {
@@ -671,6 +704,7 @@ namespace Cam
                     visual.active = false;
                 }
             }
+
 
         }
         private void ResetTimeline()
@@ -717,23 +751,72 @@ namespace Cam
         private float maxDistanceFactor = 1.0f;
         private float minTimePerFrame = 0.05f;
         private float maxTimePerFrame = 0.5f;
+        public AnimationCurve curve = AnimationCurve.Linear(0.0f, 0.0f, 1.0f, 1.0f);
+        public Transform start;
+        public Transform end;
+        public float duration;
+        float t = 0.0f;
+        void UpdateAnimationCurve()
+        {
+            switch (selectedIndex)
+            {
+                case 0:
+                    curve = AnimationCurve.Linear(0.0f, 0.0f, 1.0f, 1.0f);
+                    break;
+                case 1:
+                    curve = AnimationCurve.EaseInOut(0.0f, 0.0f, 1.0f, 1.0f);
+                    break;
+                case 2:
+                    curve = AnimationCurve.Constant(0.0f, 1.0f, 1.0f);
+                    break;
+                default:
+                    curve = AnimationCurve.Linear(0.0f, 0.0f, 1.0f, 1.0f);
+                    break;
+            }
+        }
+        private void CreateKeyframeVisual(Keyframe keyframe)
+        {
+            GameObject keyframeVisual = GameObject.CreatePrimitive(PrimitiveType.Cube);
+            keyframeVisual.transform.localScale = new Vector3(0.2f, 0.2f, 0.2f);
+            keyframeVisual.GetComponent<Renderer>().material.shader = Shader.Find("GorillaTag/UberShader");
+            keyframeVisual.GetComponent<Renderer>().material.color = Color.red;
 
+            keyframeVisual.transform.position = keyframe.position;
+            keyframeVisual.transform.rotation = keyframe.rotation;
+
+            keyframesvisual.AddItem(keyframeVisual);
+        }
+
+        public void CreateAllKeyframesVisuals()
+        {
+            foreach (var visual in keyframesvisual)
+            {
+                Destroy(visual); 
+            }
+            keyframesvisual = new GameObject[0]; 
+
+            foreach (var keyframe in keyframes)
+            {
+                CreateKeyframeVisual(keyframe);
+            }
+        }
         private void PlayAnimation()
         {
-            float totalDuration = 24f / fps;
             currentTime += Time.deltaTime;
-            float newMarkerPosition = (currentTime / totalDuration) * maxTimeline * zoomFactor;
-
+            float totalDuration = 24f / fps;
             if (keyframes.Length > 0)
             {
                 if (isPlaying)
                 {
+
                     float timePerFrame = totalDuration / keyframes.Length;
                     timer += Time.deltaTime;
+
                     while (timer >= timePerFrame)
                     {
                         timer -= timePerFrame;
                         currentFrame++;
+
                         if (currentFrame >= keyframes.Length)
                         {
                             if (loopPlayback)
@@ -747,28 +830,28 @@ namespace Cam
                                 currentTime = 0f;
                                 currentFrame = 0;
                                 timer = 0f;
-                                ++efef;
+                                efef++;
+
                                 if (efef >= 2)
                                 {
                                     currentFrame = keyframes.Length - 1;
                                     isPlaying = false;
                                     efef = 0;
                                 }
-
                             }
                         }
                     }
                     if (currentFrame < keyframes.Length - 1)
                     {
-
                         Keyframe start = keyframes[currentFrame];
                         Keyframe end = keyframes[currentFrame + 1];
 
-                        nextFrame = currentFrame + 1;
                         float lerpFactor = timer / timePerFrame;
-                        cube.transform.position = Vector3.Lerp(keyframes[currentFrame].position, keyframes[nextFrame].position, lerpFactor);
-                        cube.transform.rotation = Quaternion.Slerp(keyframes[currentFrame].rotation, keyframes[nextFrame].rotation, lerpFactor);
-                        CamObject.GetComponent<Camera>().fieldOfView = Mathf.Lerp(start.fov, end.fov, lerpFactor);
+                        float curveT = curve.Evaluate(lerpFactor);
+
+                        cube.transform.position = Vector3.Lerp(start.position, end.position, curveT);
+                        cube.transform.rotation = Quaternion.Slerp(start.rotation, end.rotation, curveT);
+                        CamObject.GetComponent<Camera>().fieldOfView = Mathf.Lerp(start.fov, end.fov, curveT);
                     }
                     else
                     {
@@ -781,7 +864,6 @@ namespace Cam
                     cube.transform.position = keyframes[currentFrame].position;
                     cube.transform.rotation = keyframes[currentFrame].rotation;
                 }
-                timelineRect.x = newMarkerPosition;
             }
         }
 
@@ -798,9 +880,12 @@ namespace Cam
             skin = bundle.LoadAsset<GUISkin>("Skin");
             timelineRect = new Rect(40, 160, 2, 140);
             maxTimeline = maxFrames * 60f;
-
+            if (!Directory.Exists(cameraPath))
+            {
+                Directory.CreateDirectory(cameraPath);
+            }
             cube = GameObject.CreatePrimitive(PrimitiveType.Sphere);
-            cube.transform.position = new Vector3(0, 0, 0); // Set position
+            cube.transform.position = new Vector3(0, 0, 0);
             cube.transform.localScale = new Vector3(0.5f, 0.5f, 0.5f);
             cube.transform.rotation = Quaternion.Euler(90, 0, 0);
             MeshRenderer renderer = cube.GetComponent<MeshRenderer>();
