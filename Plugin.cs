@@ -12,6 +12,9 @@ using System.Linq;
 using System.Threading;
 using HarmonyLib;
 using System.Text;
+using System.Collections;
+using UnityEngine.SceneManagement;
+using Cam.AnimationFunctions;
 
 namespace Cam
 {
@@ -21,7 +24,7 @@ namespace Cam
         // -- Objects and Game State Management
         private GameObject cube;
         private GameObject[] keyframesvisual = new GameObject[0];
-        private Keyframe[] keyframes = new Keyframe[0];
+        private KeyframePostion[] keyframes = new KeyframePostion[0];
         private int currentFrame = 0;
         private int nextFrame = 1;
         private int keyframeselectednum = -1;
@@ -31,7 +34,7 @@ namespace Cam
         private float timePerFrame;
         private float timer = 0f;
         private bool isPlaying = false;
-        private Keyframe newKeyframe = new Keyframe(Vector3.zero, Quaternion.identity, 90.0f);
+        private KeyframePostion newKeyframe = new KeyframePostion(Vector3.zero, Quaternion.identity, 90.0f);
 
 
         // -- GUI Layout
@@ -97,14 +100,29 @@ namespace Cam
         // -- Other
         static string cameraPath = Path.Combine(Paths.BepInExRootPath, "CameraAnimationSaves");// wryser stole ur code heheh
 
+        public bool loadScene;
+        public string sceneName;
 
+        public bool Forest;
+        public bool City;
+        public bool Canyons;
+        public bool Beach;
+        public bool Mountains;
+        public bool Clouds;
+        public bool Basement;
+        public bool Cave;
+        public bool Metropolis;
+        public bool Rotating;
+        private bool loadAllExceptForest = false;
+        private GameObject city;
+        private GameObject forest;
 
         // Dear Dev if you are reading this im sorry for my code please forgive me i swear it wasnt me who made this
         // my dog coded it thats why its to messy - Tox
         public void AddKeyframe(Vector3 position, Quaternion rotation, float fov)
         {
             Array.Resize(ref keyframes, keyframes.Length + 1);
-            keyframes[keyframes.Length - 1] = new Keyframe(position, rotation, fov);
+            keyframes[keyframes.Length - 1] = new KeyframePostion(position, rotation, fov);
             Debug.Log($"Added Keyframe: Position: {position}, Rotation: {rotation}");
         }
         // if anyone can get importing working il give them nitro dm and if u get it working and show me and send it to me
@@ -262,6 +280,187 @@ namespace Cam
                 transform.position = Vector3.Lerp(transform.position, newPosition, smoothness);
             }
         }
+        private float mapLoaderStartHeight = 0f;
+        private float mapLoaderTargetHeight = 320f;
+        private float mapLoaderCurrentHeight;
+        private float mapLoaderAnimationDuration = 1f;
+        private float mapLoaderTimer = 0f;
+        private bool mapLoaderIsAnimating = true;
+        public static ZoneData FindZoneData(GTZone zone)
+        {
+            return (ZoneData)AccessTools.Method(typeof(ZoneManagement), "GetZoneData", null, null).Invoke(ZoneManagement.instance, new object[1] { zone });
+        }
+
+        void MapLoader()
+        {
+            GUI.skin = skin;
+            float areaHeight = 400f;
+            float areaWidth = 220f;
+            GUILayout.BeginArea(new Rect(10f, UnityEngine.Screen.height - areaHeight - 15f, areaWidth, areaHeight));
+            if (GUILayout.Button("Load Beach"))
+            {
+                GTZone zone = GTZone.beach;
+                FindZoneData(zone);
+                FindZoneData(GTZone.forest);
+                GTZone[] zones = new GTZone[] { zone, GTZone.forest };
+                ZoneManagement.SetActiveZones(zones);
+            }
+            if (GUILayout.Button("Load Forest"))
+            {
+                GTZone zone = GTZone.forest;
+                FindZoneData(zone);
+                FindZoneData(GTZone.forest);
+                GTZone[] zones = new GTZone[] { zone, GTZone.forest };
+                ZoneManagement.SetActiveZones(zones);
+            }
+            if (GUILayout.Button("Load City"))
+            {
+                GTZone zone = GTZone.city;
+                FindZoneData(zone);
+                FindZoneData(GTZone.forest);
+                GTZone[] zones = new GTZone[] { zone, GTZone.forest };
+                ZoneManagement.SetActiveZones(zones);
+            }
+            if (GUILayout.Button("Load Metropolis"))
+            {
+                GTZone zone = GTZone.Metropolis;
+                FindZoneData(zone);
+                FindZoneData(GTZone.forest);
+                GTZone[] zones = new GTZone[] { zone, GTZone.forest };
+                ZoneManagement.SetActiveZones(zones);
+            }
+            if (GUILayout.Button("Load Clouds"))
+            {
+                GTZone zone = GTZone.skyJungle;
+                FindZoneData(zone);
+                FindZoneData(GTZone.forest);
+                GTZone[] zones = new GTZone[] { zone, GTZone.forest };
+                ZoneManagement.SetActiveZones(zones);
+            }
+            if (GUILayout.Button("Load Mountains"))
+            {
+                GTZone zone = GTZone.mountain;
+                FindZoneData(zone);
+                FindZoneData(GTZone.forest);
+                GTZone[] zones = new GTZone[] { zone, GTZone.forest };
+                ZoneManagement.SetActiveZones(zones);
+            }
+
+            if (GUILayout.Button("Load Rotating"))
+            {
+                GTZone zone = GTZone.rotating;
+                FindZoneData(zone);
+                FindZoneData(GTZone.forest);
+                GTZone[] zones = new GTZone[] { zone, GTZone.forest };
+                ZoneManagement.SetActiveZones(zones);
+            }
+            if (GUILayout.Button("Load Cave"))
+            {
+                GTZone zone = GTZone.cave;
+                FindZoneData(zone);
+                FindZoneData(GTZone.forest);
+                GTZone[] zones = new GTZone[] { zone, GTZone.forest };
+                ZoneManagement.SetActiveZones(zones);
+            }
+
+            if (GUILayout.Button("Load Canyons"))
+            {
+                Canyons = !Canyons;
+                GTZone zone = GTZone.canyon;
+                FindZoneData(zone);
+                FindZoneData(GTZone.forest);
+                GTZone[] zones = new GTZone[] { zone, GTZone.forest };
+
+                ZoneManagement.SetActiveZones(zones);
+            }
+        
+            GUILayout.EndArea();
+        }
+
+        void ToggleSceneLoad(string sceneName, ref bool sceneToggle)
+        {
+            if (sceneToggle)
+            {
+                SceneManager.UnloadSceneAsync(sceneName);
+                sceneToggle = false;
+            }
+            else
+            {
+                SceneManager.LoadScene(sceneName, LoadSceneMode.Additive);
+                sceneToggle = true;
+            }
+        }
+
+
+        private IEnumerator UnloadAndLoadScenes()
+        {
+
+            city.SetActive(true);
+            if (Canyons) yield return UnloadIfLoaded("Canyon2");
+            if (Beach) yield return UnloadIfLoaded("Beach");
+            if (Mountains) yield return UnloadIfLoaded("Mountain");
+            if (Clouds) yield return UnloadIfLoaded("Skyjungle");
+            if (Basement) yield return UnloadIfLoaded("Basement");
+            if (Cave) yield return UnloadIfLoaded("Cave");
+            if (Metropolis) yield return UnloadIfLoaded("Metropolis");
+            if (Rotating) yield return UnloadIfLoaded("Rotating");
+
+            City = true;
+            Canyons = true;
+            Beach = true;
+            Mountains = true;
+            Clouds = true;
+            Basement = true;
+            Cave = true;
+            Metropolis = true;
+            Rotating = true;
+
+            SceneManager.LoadScene("City", LoadSceneMode.Additive);
+            SceneManager.LoadScene("Canyon2", LoadSceneMode.Additive);
+            SceneManager.LoadScene("Beach", LoadSceneMode.Additive);
+            SceneManager.LoadScene("Mountain", LoadSceneMode.Additive);
+            SceneManager.LoadScene("Skyjungle", LoadSceneMode.Additive);
+            SceneManager.LoadScene("Basement", LoadSceneMode.Additive);
+            SceneManager.LoadScene("Cave", LoadSceneMode.Additive);
+            SceneManager.LoadScene("Metropolis", LoadSceneMode.Additive);
+            SceneManager.LoadScene("Rotating", LoadSceneMode.Additive);
+        }
+
+        private IEnumerator UnloadAllExcept(string exceptScene)
+        {
+            city.SetActive(false);
+            if (exceptScene != "Canyon2") yield return UnloadIfLoaded("Canyon2");
+            if (exceptScene != "Beach") yield return UnloadIfLoaded("Beach");
+            if (exceptScene != "Mountain") yield return UnloadIfLoaded("Mountain");
+            if (exceptScene != "Skyjungle") yield return UnloadIfLoaded("Skyjungle");
+            if (exceptScene != "Basement") yield return UnloadIfLoaded("Basement");
+            if (exceptScene != "Cave") yield return UnloadIfLoaded("Cave");
+            if (exceptScene != "Metropolis") yield return UnloadIfLoaded("Metropolis");
+            if (exceptScene != "Rotating") yield return UnloadIfLoaded("Rotating");
+
+            if (exceptScene != "City") City = false;
+            if (exceptScene != "Canyon2") Canyons = false;
+            if (exceptScene != "Beach") Beach = false;
+            if (exceptScene != "Mountain") Mountains = false;
+            if (exceptScene != "Skyjungle") Clouds = false;
+            if (exceptScene != "Basement") Basement = false;
+            if (exceptScene != "Cave") Cave = false;
+            if (exceptScene != "Metropolis") Metropolis = false;
+            if (exceptScene != "Rotating") Rotating = false;
+        }
+
+        private IEnumerator UnloadIfLoaded(string sceneName)
+        {
+            Scene scene = SceneManager.GetSceneByName(sceneName);
+            if (scene.isLoaded)
+            {
+                AsyncOperation asyncOperation = SceneManager.UnloadSceneAsync(sceneName);
+                while (!asyncOperation.isDone)
+                {
+                    yield return null;
+                }
+            }
+        }
         private void SetupCamera()
         {
             if (GorillaLocomotion.Player.Instance != null)
@@ -381,11 +580,65 @@ namespace Cam
             UnityEngine.Cursor.lockState = CursorLockMode.None;
         }
 
-        private string[] options = { "Linear", "EaseInOut", "Constant" };
+        string[] options = {
+            "Linear",
+            "EaseInOut",
+            "Constant",
+            "EaseIn",
+            "EaseOut",
+            "Bounce",
+            "Exponential",
+            "BounceIn",
+            "BounceInOut",
+            "BounceOut",
+            "Decelerate",
+            "Ease",
+            "EaseIn",
+            "EaseInBack",
+            "EaseInCirc",
+            "EaseInCubic",
+            "EaseInExpo",
+            "EaseInOut",
+            "EaseInOutBack",
+            "EaseInOutCirc",
+            "EaseInOutCubic",
+            "EaseInOutCubicEmphasized",
+            "EaseInOutExpo",
+            "EaseInOutQuad",
+            "EaseInOutQuart",
+            "EaseInOutQuint",
+            "EaseInOutSine",
+            "EaseInQuad",
+            "EaseInQuart",
+            "EaseInQuint",
+            "EaseInSine",
+            "EaseInToLinear",
+            "EaseOut",
+            "EaseOutBack",
+            "EaseOutCirc",
+            "EaseOutCubic",
+            "EaseOutExpo",
+            "EaseOutQuad",
+            "EaseOutQuart",
+            "EaseOutQuint",
+            "EaseOutSine",
+            "ElasticIn",
+            "ElasticOut",
+            "FastEaseInToSlowEaseOut",
+            "FastLinearToSlowEaseIn",
+            "FastOutSlowIn",
+            "Linear",
+            "LinearToEaseOut",
+            "SlowMiddle"
+        };
         private int selectedIndex = 0;
         private bool showDropdown = false;
         private void OnGUI()
         {
+            if (guiVisible)
+            {
+                MapLoader();
+            }
             GUI.skin = skin;
             if (isPlaying)
             {
@@ -413,12 +666,12 @@ namespace Cam
             if (Event.current.type == UnityEngine.EventType.KeyDown && Event.current.keyCode == KeyCode.K)
             {
                 float fov = CamObject.GetComponent<Camera>().fieldOfView;
-                Keyframe[] newKeyframes = new Keyframe[keyframes.Length + 1];
+                KeyframePostion[] newKeyframes = new KeyframePostion[keyframes.Length + 1];
                 for (int i = 0; i < keyframes.Length; i++)
                 {
                     newKeyframes[i] = keyframes[i];
                 }
-                newKeyframes[keyframes.Length] = new Keyframe(CamObject.transform.position, CamObject.transform.rotation, fov);
+                newKeyframes[keyframes.Length] = new KeyframePostion(CamObject.transform.position, CamObject.transform.rotation, fov);
                 keyframes = newKeyframes;
 
                 currentFrame = keyframes.Length - 1;
@@ -556,7 +809,7 @@ namespace Cam
                         keyframesvisual = keyframesvisual.Where((_, index) => index != keyframeselectednum).ToArray();
                         if (keyframes.Length > keyframeselectednum)
                         {
-                            List<Keyframe> keyframesList = keyframes.ToList();
+                            List<KeyframePostion> keyframesList = keyframes.ToList();
                             keyframesList.RemoveAt(keyframeselectednum);
                             keyframes = keyframesList.ToArray();
                         }
@@ -649,13 +902,14 @@ namespace Cam
                 GUI.EndScrollView();
                 if (GUI.Button(new Rect(xPos + 20, yPos + 230, 140, 20), "Add Keyframe"))
                 {
+
                     float fov = CamObject.GetComponent<Camera>().fieldOfView;
-                    Keyframe[] newKeyframes = new Keyframe[keyframes.Length + 1];
+                    KeyframePostion[] newKeyframes = new KeyframePostion[keyframes.Length + 1];
                     for (int i = 0; i < keyframes.Length; i++)
                     {
                         newKeyframes[i] = keyframes[i];
                     }
-                    newKeyframes[keyframes.Length] = new Keyframe(CamObject.transform.position, CamObject.transform.rotation, fov);
+                    newKeyframes[keyframes.Length] = new KeyframePostion(CamObject.transform.position, CamObject.transform.rotation, fov);
                     keyframes = newKeyframes;
                     currentFrame = keyframes.Length - 1;
                     nextFrame = (currentFrame + 1) % keyframes.Length;
@@ -675,6 +929,12 @@ namespace Cam
                     newKeyframesVisual[keyframes.Length - 1] = keyframeVisual;
                     keyframesvisual = newKeyframesVisual;
                     AddKeyframe(timelineRect.x + scrollPosition.x);
+                    print($"Keyframes: {keyframePositions}");
+                    for (int i = 0; i < keyframePositions.Count; i++)
+                    {
+                        print(keyframePositions[i]);
+
+                    }
                 }
                 if (GUI.Button(new Rect(xPos + 180, yPos + 230, 140, 20), "Save Animation"))
                 {
@@ -709,7 +969,7 @@ namespace Cam
         }
         private void ResetTimeline()
         {
-            keyframes = new Keyframe[0];
+            keyframes = new KeyframePostion[0];
             currentFrame = 0;
             nextFrame = 0;
             keyframePositions.Clear();
@@ -747,34 +1007,150 @@ namespace Cam
             }
         }
         private int efef = 0;
-
         private float maxDistanceFactor = 1.0f;
         private float minTimePerFrame = 0.05f;
         private float maxTimePerFrame = 0.5f;
-        public AnimationCurve curve = AnimationCurve.Linear(0.0f, 0.0f, 1.0f, 1.0f);
+        public static float timestart = 0.0f;
+        public static float valuestart = 0.0f;
+        public static float starttime = 1.0f;
+        public static float endtime = 1.0f;
+        private AnimationCurve myCurve;
+        public AnimationCurve curve = AnimationCurve.Linear(timestart, valuestart, starttime, endtime);
         public Transform start;
         public Transform end;
-        public float duration;
-        float t = 0.0f;
+        public float duration = 1.0f;
+        private float t = 0.0f;
+        
         void UpdateAnimationCurve()
         {
             switch (selectedIndex)
             {
-                case 0:
-                    curve = AnimationCurve.Linear(0.0f, 0.0f, 1.0f, 1.0f);
+                case 0: // Linear
+                    curve = AnimationCurve.Linear(timestart, valuestart, starttime, endtime);
                     break;
-                case 1:
-                    curve = AnimationCurve.EaseInOut(0.0f, 0.0f, 1.0f, 1.0f);
+                case 1: // Ease
+                    curve = AnimationFunction.CreateEaseCurve();
                     break;
-                case 2:
-                    curve = AnimationCurve.Constant(0.0f, 1.0f, 1.0f);
+                case 2: // Ease In
+                    curve = AnimationFunction.CreateEaseInCurve();
+                    break;
+                case 3: // Ease Out
+                    curve = AnimationFunction.CreateEaseOutCurve();
+                    break;
+                case 4: // Ease In and Out
+                    curve = AnimationCurve.EaseInOut(timestart, valuestart, starttime, endtime);
+                    break;
+                case 5: // Bounce In
+                    curve = AnimationFunction.CreateBounceInCurve();
+                    break;
+                case 6: // Bounce Out
+                    curve = AnimationFunction.CreateBounceOutCurve();
+                    break;
+                case 7: // Bounce In and Out
+                    curve = AnimationFunction.CreateBounceInOutCurve();
+                    break;
+                case 8: // Decelerate
+                    curve = AnimationFunction.CreateDecelerateCurve();
+                    break;
+                case 9: // Elastic In
+                    curve = AnimationFunction.CreateElasticInCurve();
+                    break;
+                case 10: // Elastic Out
+                    curve = AnimationFunction.CreateElasticOutCurve();
+                    break;
+                case 11: // Ease In Back
+                    curve = AnimationFunction.CreateEaseInBackCurve();
+                    break;
+                case 12: // Ease In Circ
+                    curve = AnimationFunction.CreateEaseInCircCurve();
+                    break;
+                case 13: // Ease In Cubic
+                    curve = AnimationFunction.CreateEaseInCubicCurve();
+                    break;
+                case 14: // Ease In Expo
+                    curve = AnimationFunction.CreateEaseInExpoCurve();
+                    break;
+                case 15: // Ease In Out Back
+                    curve = AnimationFunction.CreateEaseInOutBackCurve();
+                    break;
+                case 16: // Ease In Out Circ
+                    curve = AnimationFunction.CreateEaseInOutCircCurve();
+                    break;
+                case 17: // Ease In Out Cubic
+                    curve = AnimationFunction.CreateEaseInOutCubicCurve();
+                    break;
+                case 18: // Ease In Out Quad
+                    curve = AnimationFunction.CreateEaseInOutQuadCurve();
+                    break;
+                case 19: // Ease In Out Quart
+                    curve = AnimationFunction.CreateEaseInOutQuartCurve();
+                    break;
+                case 20: // Ease In Out Quint
+                    curve = AnimationFunction.CreateEaseInOutQuintCurve();
+                    break;
+                case 21: // Ease In Out Sine
+                    curve = AnimationFunction.CreateEaseInOutSineCurve();
+                    break;
+                case 22: // Ease In Quad
+                    curve = AnimationFunction.CreateEaseInQuadCurve();
+                    break;
+                case 23: // Ease In Quart
+                    curve = AnimationFunction.CreateEaseInQuartCurve();
+                    break;
+                case 24: // Ease In Quint
+                    curve = AnimationFunction.CreateEaseInQuintCurve();
+                    break;
+                case 25: // Ease In Sine
+                    curve = AnimationFunction.CreateEaseInSineCurve();
+                    break;
+                case 26: // Ease Out Back
+                    curve = AnimationFunction.CreateEaseOutBackCurve();
+                    break;
+                case 27: // Ease Out Circ
+                    curve = AnimationFunction.CreateEaseOutCircCurve();
+                    break;
+                case 28: // Ease Out Cubic
+                    curve = AnimationFunction.CreateEaseOutCubicCurve();
+                    break;
+                case 29: // Ease Out Expo
+                    curve = AnimationFunction.CreateEaseOutExpoCurve();
+                    break;
+                case 30: // Ease Out Quad
+                    curve = AnimationFunction.CreateEaseOutQuadCurve();
+                    break;
+                case 31: // Ease Out Quart
+                    curve = AnimationFunction.CreateEaseOutQuartCurve();
+                    break;
+                case 32: // Ease Out Quint
+                    curve = AnimationFunction.CreateEaseOutQuintCurve();
+                    break;
+                case 33: // Ease Out Sine
+                    curve = AnimationFunction.CreateEaseOutSineCurve();
+                    break;
+                case 34: // Fast Ease In to Slow Ease Out
+                    curve = AnimationFunction.CreateFastEaseInToSlowEaseOut();
+                    break;
+                case 35: // Fast Linear to Slow Ease In
+                    curve = AnimationFunction.CreateFastLinearToSlowEaseIn();
+                    break;
+                case 36: // Fast Out Slow In
+                    curve = AnimationFunction.CreateFastOutSlowIn();
+                    break;
+                case 37: // Linear to Ease Out
+                    curve = AnimationFunction.CreateLinearToEaseOut();
+                    break;
+                case 38: // Slow Middle
+                    curve = AnimationFunction.CreateSlowMiddle();
                     break;
                 default:
-                    curve = AnimationCurve.Linear(0.0f, 0.0f, 1.0f, 1.0f);
+                    curve = AnimationCurve.Linear(timestart, valuestart, starttime, endtime);
                     break;
             }
         }
-        private void CreateKeyframeVisual(Keyframe keyframe)
+
+       
+
+        private void CreateKeyframeVisual(KeyframePostion keyframe)
         {
             GameObject keyframeVisual = GameObject.CreatePrimitive(PrimitiveType.Cube);
             keyframeVisual.transform.localScale = new Vector3(0.2f, 0.2f, 0.2f);
@@ -804,14 +1180,13 @@ namespace Cam
         {
             currentTime += Time.deltaTime;
             float totalDuration = 24f / fps;
+            float newMarkerPosition = (currentTime / totalDuration) * maxTimeline * zoomFactor;
             if (keyframes.Length > 0)
             {
                 if (isPlaying)
                 {
-
                     float timePerFrame = totalDuration / keyframes.Length;
                     timer += Time.deltaTime;
-
                     while (timer >= timePerFrame)
                     {
                         timer -= timePerFrame;
@@ -843,11 +1218,12 @@ namespace Cam
                     }
                     if (currentFrame < keyframes.Length - 1)
                     {
-                        Keyframe start = keyframes[currentFrame];
-                        Keyframe end = keyframes[currentFrame + 1];
+                        KeyframePostion start = keyframes[currentFrame];
+                        KeyframePostion end = keyframes[currentFrame + 1];
 
                         float lerpFactor = timer / timePerFrame;
                         float curveT = curve.Evaluate(lerpFactor);
+
 
                         cube.transform.position = Vector3.Lerp(start.position, end.position, curveT);
                         cube.transform.rotation = Quaternion.Slerp(start.rotation, end.rotation, curveT);
@@ -855,28 +1231,33 @@ namespace Cam
                     }
                     else
                     {
+
                         cube.transform.position = keyframes[currentFrame].position;
                         cube.transform.rotation = keyframes[currentFrame].rotation;
                     }
                 }
                 else
                 {
+
                     cube.transform.position = keyframes[currentFrame].position;
                     cube.transform.rotation = keyframes[currentFrame].rotation;
                 }
+                timelineRect.x = newMarkerPosition;
             }
         }
+
 
 
 
         void Start()
         {
             GorillaTagger.OnPlayerSpawned(playerSpawned);
-           
         }
         void playerSpawned()
         {
-             bundle = AssetBundle.LoadFromStream(Assembly.GetExecutingAssembly().GetManifestResourceStream("Cam.Assets.ui"));
+            city = GameObject.Find("City_WorkingPrefab");
+            forest = GameObject.Find("Environment Objects/LocalObjects_Prefab/Forest/");
+            bundle = AssetBundle.LoadFromStream(Assembly.GetExecutingAssembly().GetManifestResourceStream("Cam.Assets.ui"));
             skin = bundle.LoadAsset<GUISkin>("Skin");
             timelineRect = new Rect(40, 160, 2, 140);
             maxTimeline = maxFrames * 60f;
