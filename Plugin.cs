@@ -510,8 +510,6 @@ namespace Cam
                         else
                         {
                         }
-
-                        PhotonNetworkController.Instance.disableAFKKick = true;
                     }
                     else
                     {
