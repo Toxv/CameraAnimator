@@ -15,6 +15,7 @@ using System.Text;
 using System.Collections;
 using UnityEngine.SceneManagement;
 using Cam.AnimationFunctions;
+using Photon.Pun;
 
 namespace Cam
 {
@@ -91,7 +92,7 @@ namespace Cam
         private List<float> keyframePositions = new List<float>();
 
         // -- Frame Rate and Timing
-        private float fps = 24f;
+        private float fps = 1f;
         private float currentTime = 0f;
 
         // -- GUI Visibility
@@ -194,13 +195,22 @@ namespace Cam
 
             Debug.Log($"Keyframes exported to: {fullPath}");
         }
+       
         private void Update()
         {
 
             if (cameraview && isPlaying)
             {
+                cube.SetActive(false);
                 CamObject.transform.position = cube.transform.position;
                 CamObject.transform.rotation = cube.transform.rotation;
+
+            }else
+            {
+                if (!cameraview && isPlaying)
+                {
+                    cube.SetActive(true);
+                }
             }
             if (loaded)
             {
@@ -280,12 +290,6 @@ namespace Cam
                 transform.position = Vector3.Lerp(transform.position, newPosition, smoothness);
             }
         }
-        private float mapLoaderStartHeight = 0f;
-        private float mapLoaderTargetHeight = 320f;
-        private float mapLoaderCurrentHeight;
-        private float mapLoaderAnimationDuration = 1f;
-        private float mapLoaderTimer = 0f;
-        private bool mapLoaderIsAnimating = true;
         public static ZoneData FindZoneData(GTZone zone)
         {
             return (ZoneData)AccessTools.Method(typeof(ZoneManagement), "GetZoneData", null, null).Invoke(ZoneManagement.instance, new object[1] { zone });
@@ -510,6 +514,8 @@ namespace Cam
                         else
                         {
                         }
+
+                        PhotonNetworkController.Instance.disableAFKKick = true;
                     }
                     else
                     {
@@ -630,14 +636,39 @@ namespace Cam
             "SlowMiddle"
         };
         private int selectedIndex = 0;
-        private bool showDropdown = false;
+        private bool showDropdown = true;
         private void OnGUI()
         {
+            GUI.skin = skin;
+            if (showPopup)
+            {
+                
+                float windowWidth = 300;
+                float windowHeight = 200;
+                windowRect = new Rect((Screen.width - windowWidth) / 2, (Screen.height - windowHeight) / 2, windowWidth, windowHeight);
+                GUILayout.BeginArea(windowRect);
+                GUI.Box(new Rect(0, 0, windowWidth, windowHeight),"");
+
+                GUILayout.Label("Join the Discord to stay updated! -Tox");
+
+                if (GUILayout.Button("Join", GUILayout.Height(50)))
+                {
+                    Application.OpenURL("https://discord.gg/39fFSURGFQ");
+                }
+
+                if (GUILayout.Button("Dismiss", GUILayout.Height(50)))
+                {
+                    PlayerPrefs.SetInt("DiscordPopupDismissedAnim", 1);
+                    PlayerPrefs.Save();
+                    showPopup = false;
+                }
+
+                GUILayout.EndArea();
+            }
             if (guiVisible)
             {
                 MapLoader();
             }
-            GUI.skin = skin;
             if (isPlaying)
             {
                 PlayAnimation();
@@ -676,10 +707,7 @@ namespace Cam
                 nextFrame = (currentFrame + 1) % keyframes.Length;
                 cube.transform.position = keyframes[currentFrame].position;
                 cube.transform.rotation = keyframes[currentFrame].rotation;
-                GameObject keyframeVisual = GameObject.CreatePrimitive(PrimitiveType.Cube);
-                keyframeVisual.transform.localScale = new Vector3(0.2f, 0.2f, 0.2f);
-                keyframeVisual.GetComponent<Renderer>().material.shader = Shader.Find("GorillaTag/UberShader");
-                keyframeVisual.GetComponent<Renderer>().material.color = Color.red;
+                GameObject keyframeVisual = Instantiate(keyframemodel);
                 keyframeVisual.transform.position = CamObject.transform.position;
                 keyframeVisual.transform.rotation = CamObject.transform.rotation;
 
@@ -690,6 +718,7 @@ namespace Cam
                 }
                 newKeyframesVisual[keyframes.Length - 1] = keyframeVisual;
                 keyframesvisual = newKeyframesVisual;
+                timelineRect.x += 100;
                 AddKeyframe(timelineRect.x + scrollPosition.x);
             }
 
@@ -710,14 +739,16 @@ namespace Cam
                 GUILayout.BeginHorizontal();
                 if (GUILayout.Button("Camera", GUILayout.Width(80)))
                 {
+                    GorillaTagger.Instance.offlineVRRig.tagSound.PlayOneShot(GUIclick);
                     if (keyframes.Length > 0)
                     {
                         cameraview = !cameraview;
                     }
                 }
 
-                if (GUILayout.Button("<", GUILayout.Width(40)))
+                if (GUILayout.Button("<", GUILayout.Width(20)))
                 {
+                    GorillaTagger.Instance.offlineVRRig.tagSound.PlayOneShot(GUIclick);
                     if (keyframes.Length > 0)
                     {
                         currentFrame = (currentFrame - 1 + keyframes.Length) % keyframes.Length;
@@ -727,11 +758,20 @@ namespace Cam
                         newKeyframe = keyframes[currentFrame];
                     }
                 }
-
-                if (GUILayout.Button(">", GUILayout.Width(40)))
+                string Playingtext = "Play";
+                if (GUILayout.Button(Playingtext, GUILayout.Width(40)))
                 {
+                    GorillaTagger.Instance.offlineVRRig.tagSound.PlayOneShot(GUIclick);
+                    isPlaying = !isPlaying;
+                    if (isPlaying)  Playingtext = "Play";
+                    if (!isPlaying) Playingtext = "Stop";
+
+                }
+                if (GUILayout.Button(">", GUILayout.Width(20)))
+                {
+                    GorillaTagger.Instance.offlineVRRig.tagSound.PlayOneShot(GUIclick);
                     if (keyframes.Length > 0)
-                    {
+                    { 
                         currentFrame = (currentFrame + 1) % keyframes.Length;
                         nextFrame = (currentFrame + 1) % keyframes.Length;
                         cube.transform.position = keyframes[currentFrame].position;
@@ -740,7 +780,7 @@ namespace Cam
                     }
                 }
 
-                if (GUILayout.Button("Reset", GUILayout.Width(60))) { ResetTimeline(); }
+                if (GUILayout.Button("Reset", GUILayout.Width(60))) { ResetTimeline(); GorillaTagger.Instance.offlineVRRig.tagSound.PlayOneShot(GUIclick); }
 
                 GUILayout.Label("FPS:", GUILayout.Width(40));
                 string fpsInput = GUILayout.TextField(fps.ToString(), GUILayout.Width(50));
@@ -771,6 +811,7 @@ namespace Cam
                     GUILayout.Label("Key: " + frameplaying, GUILayout.Width(40));
                     if (keyframes.Length > frameplaying)
                     {
+
                         GUILayout.Label("Fov: " + keyframes[frameplaying].fov, GUILayout.Width(40));
                     }
                 }
@@ -782,11 +823,13 @@ namespace Cam
 
                 if (GUILayout.Button("Zoom In", GUILayout.Width(100)))
                 {
+                    GorillaTagger.Instance.offlineVRRig.tagSound.PlayOneShot(GUIclick);
                     zoomFactor += 0.1f;
                     zoomFactor = Mathf.Clamp(zoomFactor, 0.1f, maxFrames / 24f);
                 }
                 if (GUILayout.Button("Zoom Out", GUILayout.Width(100)))
                 {
+                    GorillaTagger.Instance.offlineVRRig.tagSound.PlayOneShot(GUIclick);
                     if (zoomFactor > 0.7f)
                     {
                         zoomFactor -= 0.1f;
@@ -799,6 +842,7 @@ namespace Cam
                 {
                     if (GUILayout.Button("Delete Keyframe"))
                     {
+                        GorillaTagger.Instance.offlineVRRig.tagSound.PlayOneShot(GUIclick);
                         keyframePositions.RemoveAt(keyframeselectednum);
                         if (keyframesvisual.Length > keyframeselectednum && keyframesvisual[keyframeselectednum] != null)
                         {
@@ -823,12 +867,14 @@ namespace Cam
                 {
                     if (GUILayout.Button("<", GUILayout.Width(50)))
                     {
+                        GorillaTagger.Instance.offlineVRRig.tagSound.PlayOneShot(GUIclick);
                         selectedIndex = (selectedIndex - 1 + options.Length) % options.Length;
                         UpdateAnimationCurve();
                     }
                     GUILayout.Label($"{options[selectedIndex]}", GUILayout.Width(100));
                     if (GUILayout.Button(">", GUILayout.Width(50)))
                     {
+                        GorillaTagger.Instance.offlineVRRig.tagSound.PlayOneShot(GUIclick);
                         selectedIndex = (selectedIndex + 1) % options.Length;
                         UpdateAnimationCurve();
                     }
@@ -846,6 +892,7 @@ namespace Cam
                 }
                 if (Event.current.type == UnityEngine.EventType.MouseDown && Event.current.button == 0)
                 {
+                    GorillaTagger.Instance.offlineVRRig.tagSound.PlayOneShot(GUIclick);
                     float clickedPosition = Event.current.mousePosition.x + scrollPosition.x;
                     timelineRect.x = Mathf.Clamp(clickedPosition - scrollPosition.x, 0, maxTimeline * zoomFactor);
                     currentTime = timelineRect.x / zoomFactor;
@@ -900,7 +947,7 @@ namespace Cam
                 GUI.EndScrollView();
                 if (GUI.Button(new Rect(xPos + 20, yPos + 230, 140, 20), "Add Keyframe"))
                 {
-
+                    GorillaTagger.Instance.offlineVRRig.tagSound.PlayOneShot(GUIclick);
                     float fov = CamObject.GetComponent<Camera>().fieldOfView;
                     KeyframePostion[] newKeyframes = new KeyframePostion[keyframes.Length + 1];
                     for (int i = 0; i < keyframes.Length; i++)
@@ -913,10 +960,7 @@ namespace Cam
                     nextFrame = (currentFrame + 1) % keyframes.Length;
                     cube.transform.position = keyframes[currentFrame].position;
                     cube.transform.rotation = keyframes[currentFrame].rotation;
-                    GameObject keyframeVisual = GameObject.CreatePrimitive(PrimitiveType.Cube);
-                    keyframeVisual.transform.localScale = new Vector3(0.2f, 0.2f, 0.2f);
-                    keyframeVisual.GetComponent<Renderer>().material.shader = Shader.Find("GorillaTag/UberShader");
-                    keyframeVisual.GetComponent<Renderer>().material.color = Color.red;
+                    GameObject keyframeVisual = Instantiate(keyframemodel);
                     keyframeVisual.transform.position = CamObject.transform.position;
                     keyframeVisual.transform.rotation = CamObject.transform.rotation;
                     GameObject[] newKeyframesVisual = new GameObject[keyframes.Length];
@@ -927,6 +971,7 @@ namespace Cam
                     newKeyframesVisual[keyframes.Length - 1] = keyframeVisual;
                     keyframesvisual = newKeyframesVisual;
                     AddKeyframe(timelineRect.x + scrollPosition.x);
+                    timelineRect.x += 100;
                     print($"Keyframes: {keyframePositions}");
                     for (int i = 0; i < keyframePositions.Count; i++)
                     {
@@ -937,9 +982,11 @@ namespace Cam
                 if (GUI.Button(new Rect(xPos + 180, yPos + 230, 140, 20), "Save Animation"))
                 {
                     ExportKeyframes();
+                    GorillaTagger.Instance.offlineVRRig.tagSound.PlayOneShot(GUIclick);
                 }
                 if (GUI.Button(new Rect(xPos + 340, yPos + 230, 140, 20), "Load Animation"))
                 {
+                    GorillaTagger.Instance.offlineVRRig.tagSound.PlayOneShot(GUIclick);
                 }
                 if (keyframeselected && keyframes.Length > keyframeselectednum)
                 {
@@ -962,11 +1009,10 @@ namespace Cam
                     visual.active = false;
                 }
             }
-
-
         }
         private void ResetTimeline()
         {
+            timelineRect.x = 0;
             keyframes = new KeyframePostion[0];
             currentFrame = 0;
             nextFrame = 0;
@@ -1150,10 +1196,7 @@ namespace Cam
 
         private void CreateKeyframeVisual(KeyframePostion keyframe)
         {
-            GameObject keyframeVisual = GameObject.CreatePrimitive(PrimitiveType.Cube);
-            keyframeVisual.transform.localScale = new Vector3(0.2f, 0.2f, 0.2f);
-            keyframeVisual.GetComponent<Renderer>().material.shader = Shader.Find("GorillaTag/UberShader");
-            keyframeVisual.GetComponent<Renderer>().material.color = Color.red;
+            GameObject keyframeVisual = Instantiate(keyframemodel);
 
             keyframeVisual.transform.position = keyframe.position;
             keyframeVisual.transform.rotation = keyframe.rotation;
@@ -1223,8 +1266,8 @@ namespace Cam
                         float curveT = curve.Evaluate(lerpFactor);
 
 
-                        cube.transform.position = Vector3.Lerp(start.position, end.position, curveT);
-                        cube.transform.rotation = Quaternion.Slerp(start.rotation, end.rotation, curveT);
+                        cube.transform.position = Vector3.LerpUnclamped(start.position, end.position, curveT);
+                        cube.transform.rotation = Quaternion.SlerpUnclamped(start.rotation, end.rotation, curveT);
                         CamObject.GetComponent<Camera>().fieldOfView = Mathf.Lerp(start.fov, end.fov, curveT);
                     }
                     else
@@ -1245,12 +1288,24 @@ namespace Cam
         }
 
 
-
-
+        private Rect windowRect;
+        private bool showPopup = true;
+        private AudioClip GUIclick;
         void Start()
         {
+            if (PlayerPrefs.GetInt("DiscordPopupDismissedAnim") == 1)
+            {
+                showPopup = false;
+            }
+
+
+            float windowWidth = 300;
+            float windowHeight = 150;
+            windowRect = new Rect((Screen.width - windowWidth) / 2, (Screen.height - windowHeight) / 2, windowWidth, windowHeight);
+            GorillaTagger.OnPlayerSpawned(playerSpawned);
             GorillaTagger.OnPlayerSpawned(playerSpawned);
         }
+        private GameObject keyframemodel;
         void playerSpawned()
         {
             city = GameObject.Find("City_WorkingPrefab");
@@ -1263,23 +1318,27 @@ namespace Cam
             {
                 Directory.CreateDirectory(cameraPath);
             }
-            cube = GameObject.CreatePrimitive(PrimitiveType.Sphere);
-            cube.transform.position = new Vector3(0, 0, 0);
-            cube.transform.localScale = new Vector3(0.5f, 0.5f, 0.5f);
-            cube.transform.rotation = Quaternion.Euler(90, 0, 0);
-            MeshRenderer renderer = cube.GetComponent<MeshRenderer>();
-            Material material = new Material(Shader.Find("GorillaTag/UberShader"));
-            material.color = Color.blue;
-            renderer.material = material;
-
-            if (cube == null)
-            {
-                Debug.LogError("Cube GameObject not found in the scene.");
-                return;
-            }
             timePerFrame = 1f / frameRate;
             SetupCamera();
             loaded = true;
+            GameObject cameraPrefab = bundle.LoadAsset<GameObject>("CameraModel");
+            cube = Instantiate(cameraPrefab).gameObject;
+            GUIclick = bundle.LoadAsset<AudioClip>("click");
+            GorillaTagger.Instance.offlineVRRig.tagSound.PlayOneShot(GUIclick);
+            Debug.Log(GameObject.Find("CameraModel(Clone)/default"));
+            MeshRenderer renderer = GameObject.Find("CameraModel(Clone)/default").GetComponent<MeshRenderer>();
+            Material material = new Material(Shader.Find("GorillaTag/UberShader"));
+            renderer.material = material;
+            renderer.material.color = Color.black;
+            cube.transform.localRotation = Quaternion.Euler(0,180,0);
+            GameObject keyframemodelprefab = bundle.LoadAsset<GameObject>("KeyframeModel");
+            keyframemodel = Instantiate(keyframemodelprefab).gameObject;
+
+            MeshRenderer renderer1 = GameObject.Find("KeyframeModel(Clone)/default").GetComponent<MeshRenderer>();
+            Material material1 = new Material(Shader.Find("GorillaTag/UberShader"));
+            renderer1.material = material1;
+            renderer1.material.color = Color.blue;
+
         }
     }
 }
